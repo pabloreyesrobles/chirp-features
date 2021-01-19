@@ -6,6 +6,8 @@ $ pip install spikelib
 ```
 Es necesario que las carpetas de los experimentos que se desean procesar posean la siguiente estructura
 ```sh
+extract_features.py
+chirp.py
 MR-0XXX
 ├── config.ini
 ├── data
