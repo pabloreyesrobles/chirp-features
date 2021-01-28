@@ -2,6 +2,7 @@ from scipy.signal import hann, find_peaks, hilbert
 from scipy.optimize import curve_fit, OptimizeWarning
 from spikelib import spiketools as spkt
 from functools import reduce
+from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
@@ -696,7 +697,7 @@ def get_chirp_features(spks, events, parameters, panalysis,
     cells_feat = np.empty((len(spks.keys()), len(columns)))
     cells_feat[:] = np.nan
 
-    for idx, unit in enumerate(spks.keys()):
+    for idx, unit in enumerate(tqdm(spks.keys())):
         spikes = spks[unit][:].flatten() / 20000.0
 
         fields_df = ['start_event', 'end_event']
