@@ -146,16 +146,21 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 	ax[1][1].set_xlabel('Amplitude')
 	ax[1][1].set_ylabel('Delay [s]')
 	ax[1][2].set_xlabel('Amplitude')
-	ax[1][2].set_ylabel('fresponse [Hz]')        
+	ax[1][2].set_ylabel('fresponse [Hz]')
+
+	def time_to_amp(arr):
+		# Se cambia el eje de tiempo por estímulo de amplitud
+		# Amplitud máxima es 0.5 pero se agrega 0.125 por la extensión de 8 a 10 segundos del tiempo de adaptación
+		return np.multiply(np.ones_like(arr) * 0.625 / 10, arr, out=np.full_like(arr, np.nan, dtype=np.double), where=arr!=np.nan)
 
 	if flash_type == 1 or flash_type == 3:            
-			t_on_fit = data['freq_on_fitting'][:][0]
+			t_on_fit = time_to_amp(data['freq_on_fitting'][:][0])
 			v_on_fit = data['freq_on_fitting'][:][1]
-			t_on_peaks = data['freq_on_peaks'][:][0]
+			t_on_peaks = time_to_amp(data['freq_on_peaks'][:][0])
 			v_on_peaks = data['freq_on_peaks'][:][1]
 			freq_on_delays = data['freq_on_delays'][:]
 			freq_on_resp = data['freq_on_fresp'][:]
-			t_on_delay_fit = data['freq_on_delay_fit'][:][0]
+			t_on_delay_fit = time_to_amp(data['freq_on_delay_fit'][:][0])
 			v_on_delay_fit = data['freq_on_delay_fit'][:][1]
 			
 			on_id_max = np.argmax(np.isnan(t_on_peaks))
@@ -168,9 +173,9 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 					ax[0][1].plot(t_on_delay_fit, v_on_delay_fit, color='tab:blue')
 					ax[0][2].plot(t_on_peaks[:on_id_max - 1], freq_on_resp[:on_id_max - 1], '.-', color='tab:cyan')   
 			
-			t_on_fit = data['amp_on_fitting'][:][0]
+			t_on_fit = time_to_amp(data['amp_on_fitting'][:][0])
 			v_on_fit = data['amp_on_fitting'][:][1]
-			t_on_peaks = data['amp_on_peaks'][:][0]
+			t_on_peaks = time_to_amp(data['amp_on_peaks'][:][0])
 			v_on_peaks = data['amp_on_peaks'][:][1]
 			amp_on_delays = data['amp_on_delays'][:]
 			amp_on_resp = data['amp_on_fresp'][:]
@@ -183,13 +188,13 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 			ax[1][2].plot(t_on_peaks[:-1], amp_on_resp, '.-', color='tab:cyan')        
 
 	if flash_type == 2 or flash_type == 3:
-			t_off_fit = data['freq_off_fitting'][:][0]
+			t_off_fit = time_to_amp(data['freq_off_fitting'][:][0])
 			v_off_fit = data['freq_off_fitting'][:][1]
-			t_off_peaks = data['freq_off_peaks'][:][0]
+			t_off_peaks = time_to_amp(data['freq_off_peaks'][:][0])
 			v_off_peaks = data['freq_off_peaks'][:][1]
 			freq_off_delays = data['freq_off_delays'][:]
 			freq_off_resp = data['freq_off_fresp'][:]
-			t_off_delay_fit = data['freq_off_delay_fit'][:][0]
+			t_off_delay_fit = time_to_amp(data['freq_off_delay_fit'][:][0])
 			v_off_delay_fit = data['freq_off_delay_fit'][:][1]
 			
 			off_id_max = np.argmax(np.isnan(t_off_peaks))
@@ -202,9 +207,9 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 					ax[0][1].plot(t_off_delay_fit, v_off_delay_fit, color='tab:blue')
 					ax[0][2].plot(t_off_peaks[:off_id_max - 1], freq_off_resp[:off_id_max - 1], '.-', color='tab:olive')
 			
-			t_off_fit = data['amp_off_fitting'][:][0]
+			t_off_fit = time_to_amp(data['amp_off_fitting'][:][0])
 			v_off_fit = data['amp_off_fitting'][:][1]
-			t_off_peaks = data['amp_off_peaks'][:][0]
+			t_off_peaks = time_to_amp(data['amp_off_peaks'][:][0])
 			v_off_peaks = data['amp_off_peaks'][:][1]
 			amp_off_delays = data['amp_off_delays'][:]
 			amp_off_resp = data['amp_off_fresp'][:]
@@ -310,11 +315,13 @@ if __name__ == "__main__":
 		
 		resp_file = os.path.join(exp_output, 'response.hdf5')
 		feat_file = os.path.join(exp_output, 'features.csv')
-		
-		print('Response and features:')
-		with h5py.File(sorting_file, 'r') as spks:
-			get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
-														panalysis=resp_file, feat_file=feat_file)		
+
+		if len(sys.argv) > 1:
+			if '-fig' not in sys.argv: # Fig only
+				print('Response and features:')
+				with h5py.File(sorting_file, 'r') as spks:
+					get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
+													 panalysis=resp_file, feat_file=feat_file)
 
 		print('Figures:')
 		fig_dir = os.path.join(exp_output, 'fig')
@@ -332,7 +339,9 @@ if __name__ == "__main__":
 		with h5py.File(resp_file, 'r') as resp:
 			for key in tqdm(resp.keys()):
 				plot_resp(key, resp, feat_file, resp_dir)
+				plot_features(key, resp, feat_file, feat_dir)
 
 		plt.close('all')
 
 		print('Done!\n')
+		
