@@ -320,6 +320,48 @@ def freq_gauss_fit(t_spike, v_spike, bins_fit):
 	"""
 	return (fmax_end, f0_end, sigma_end, x_new, y_new, error)
 
+def freq_exp_fit(t_spike, v_spike, bins_fit):
+	# Índice máximo para hacer fitting, previo a filtrar NaN
+	filt = np.argmax(np.isnan(t_spike))
+
+	t_filter = t_spike[:filt]
+	v_filter = v_spike[:filt]
+
+	delay_start = np.nan
+	scale = np.nan
+	delay_end = np.nan 
+	x_new = np.nan
+	y_new = np.nan
+	error = np.nan
+
+	def Exp(x, a, b, c):
+		return a * np.exp(-x * b) + c
+
+	# Normalizar est_resp para el fitting. pcov se puede usar para ver la varianza en los componentes
+	with warnings.catch_warnings():
+		warnings.simplefilter("error", OptimizeWarning)
+		try:
+			bounds = ((-np.inf, 0, 0), (0, np.inf, np.inf))
+			popt, pcov = curve_fit(Exp, t_filter, v_filter, bounds=bounds)
+
+			delay_start = popt[0]
+			scale = popt[1]
+			delay_end = popt[2]
+
+			x_new = bins_fit[bins_fit < t_filter[-1]]
+			y_new = Exp(x_new, delay_start, scale, delay_end)
+
+			error = np.nanmean(np.abs(v_filter - y_new) ** 2) ** 0.5
+
+		except OptimizeWarning:
+			pass
+		except ValueError:
+			pass
+		except RuntimeError:
+			pass
+	
+	return (delay_start, scale, delay_end, x_new, y_new, error)
+
 def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_type, min_lines, max_lines):
 	time_start, time_end = bounds[:, 0], bounds[:, 1]
 	freq_time_dur = np.mean(np.diff(bounds, axis=1))
@@ -350,15 +392,18 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 
 	on_tim_spike, on_val_spike, on_delays = ([], [], [])
 	on_time_fit, on_resp_fit = ([], [])
+	on_dtime_fit, on_dresp_fit = ([], [])
 	on_fresp = []
 
 	off_tim_spike, off_val_spike, off_delays = ([], [], [])
 	off_time_fit, off_resp_fit = ([], [])
+	off_dtime_fit, off_dresp_fit = ([], [])
 	off_fresp = []
 
 	if cell_type == 1 or cell_type == 3: # ON u ON/OFF
 		on_tim_spike, on_val_spike, on_delays, _ = freq_on_peak_sel(resp, bins_fit, min_lines, max_lines, peaks)
 		on_fmax, on_f0, on_sigma, on_time_fit, on_resp_fit, on_error = freq_gauss_fit(on_tim_spike, on_val_spike, bins_fit)
+		on_dstart, on_dscale, on_dend, on_dtime_fit, on_dresp_fit, on_derror = freq_exp_fit(on_tim_spike, on_delays, bins_fit)
 
 		on_diff = np.diff(on_tim_spike)
 		on_fresp = np.divide(np.ones_like(on_diff), on_diff, out=np.full_like(on_diff, np.nan, dtype=np.double), where=on_diff!=0)
@@ -376,6 +421,7 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 	if cell_type == 2 or cell_type == 3: # OFF u ON/OFF
 		off_tim_spike, off_val_spike, off_delays, _ = freq_off_peak_sel(resp, bins_fit, min_lines, max_lines, peaks)
 		off_fmax, off_f0, off_sigma, off_time_fit, off_resp_fit, off_error = freq_gauss_fit(off_tim_spike, off_val_spike, bins_fit)
+		off_dstart, off_dscale, off_dend, off_dtime_fit, off_dresp_fit, off_derror = freq_exp_fit(off_tim_spike, off_delays, bins_fit)
 
 		off_diff = np.diff(off_tim_spike)
 		off_fresp = np.divide(np.ones_like(off_diff), off_diff, out=np.full_like(off_diff, np.nan, dtype=np.double), where=off_diff!=0)
@@ -404,7 +450,6 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 					   off_error,
 					   off_fcut,
 					   off_delay])
-							#SNR])
 	
 	# Retorna respuesta de modulación en frecuencia, el análisis de peaks, fitting y features
 	processed = {}
@@ -414,10 +459,12 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 	processed['on_delays'] = np.array(on_delays)
 	processed['on_fresp'] = np.array(on_fresp)
 	processed['on_fitting'] = np.array([on_time_fit, on_resp_fit])
+	processed['on_delay_fit'] = np.array([on_dtime_fit, on_dresp_fit])
 	processed['off_peaks'] = np.array([off_tim_spike, off_val_spike])
 	processed['off_delays'] = np.array(off_delays)
 	processed['off_fresp'] = np.array(off_fresp)
 	processed['off_fitting'] = np.array([off_time_fit, off_resp_fit])
+	processed['off_delay_fit'] = np.array([off_dtime_fit, off_dresp_fit])
 	processed['char'] = char
 	return processed
 
@@ -591,10 +638,7 @@ def amp_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_type
 
 	# Amplitude modulation vs time. Se asume: max_val * (ramp[time] - ramp[time - dur])
 	def amp_mod(time, max_val, dur):
-		if time < dur:
-			return time * max_val / dur
-		else:
-			return max_val
+		return time * max_val / dur
 
 	if cell_type == 1 or cell_type == 3: # ON u ON/OFF
 		on_tim_spike, on_val_spike, on_delays, _ = amp_on_peak_sel(resp, bins_fit, min_lines, max_lines, peaks)
@@ -620,21 +664,25 @@ def amp_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_type
 		if len(off_delays) > 0 and np.count_nonzero(~np.isnan(off_delays)) > 0:
 			off_delay = np.nanmean(off_delays)
 
-	#SNR = 20 * np.log10(np.max(resp) / (2 * np.mean(resp)))
-	
 	char = np.asarray([on_fmax,
-					   on_slope,
-					   on_shift,
-					   on_error,
-					   on_fcut,
-					   on_delay,
-					   off_fmax,
-					   off_slope,
-					   off_shift,
-					   off_error,
-					   off_fcut,
-					   off_delay])
-							#SNR])
+										 on_slope,
+										 on_shift,
+										 on_error,
+										 on_fcut,
+										 on_delay,
+										 off_fmax,
+										 off_slope,
+										 off_shift,
+										 off_error,
+										 off_fcut,
+										 off_delay])
+
+	# Se cambia el eje de tiempo por estímulo de amplitud
+	# Amplitud máxima es 0.5 pero se agrega 0.125 por la extensión de 8 a 10 segundos del tiempo de adaptación
+	on_tim_spike = np.multiply(np.ones_like(on_tim_spike) * 0.625 / 10, on_tim_spike, out=np.full_like(on_tim_spike, np.nan, dtype=np.double), where=on_tim_spike!=np.nan)
+	on_time_fit = np.multiply(np.ones_like(on_time_fit) * 0.625 / 10, on_time_fit, out=np.full_like(on_time_fit, np.nan, dtype=np.double), where=on_time_fit!=np.nan)
+	off_tim_spike = np.multiply(np.ones_like(off_tim_spike) * 0.625 / 10, off_tim_spike, out=np.full_like(off_tim_spike, np.nan, dtype=np.double), where=off_tim_spike!=np.nan)
+	off_time_fit = np.multiply(np.ones_like(off_time_fit) * 0.625 / 10, off_time_fit, out=np.full_like(off_time_fit, np.nan, dtype=np.double), where=off_time_fit!=np.nan)
 	
 	# Retorna respuesta de modulación en frecuencia, el análisis de peaks, fitting y features
 	processed = {}
@@ -900,10 +948,12 @@ def get_chirp_response(spks, events, parameters, cell_key,
 	output['freq_on_delays'] = freq_data['on_delays']
 	output['freq_on_fresp'] = freq_data['on_fresp']
 	output['freq_on_fitting'] = freq_data['on_fitting']
+	output['freq_on_delay_fit'] = freq_data['on_delay_fit']
 	output['freq_off_peaks'] = freq_data['off_peaks']
 	output['freq_off_delays'] = freq_data['off_delays']
 	output['freq_off_fresp'] = freq_data['off_fresp']
 	output['freq_off_fitting'] = freq_data['off_fitting']
+	output['freq_off_delay_fit'] = freq_data['off_delay_fit']
 
 	output['amp_time'] = amp_data['response'][0]
 	output['amp_response'] = amp_data['response'][1]

@@ -21,80 +21,205 @@ from spikelib import visualizations as vis
 from ipywidgets import IntSlider, interact, Dropdown, fixed
 from spikelib import spiketools as spkt
 
-def plot_resp(panalysis, csv_feat, save_dir):
+def plot_resp(key, panalysis, csv_feat, save_dir):
 	# Stimulus time and signal			
 	df_feat = pd.read_csv(csv_feat, index_col=0)
 	
-	with h5py.File(panalysis, 'r') as resp:
-		for key in tqdm(resp.keys()):
-			flash_type = df_feat.loc[key]['flash_type']
-			data = resp['{}/cell_resp/'.format(key)]
+	flash_type = df_feat.loc[key]['flash_type']
+	data = resp['{}/cell_resp/'.format(key)]
 
-			freq_time = data['freq_time'][:]
-			freq_response = data['freq_response'][:]
+	freq_time = data['freq_time'][:]
+	freq_response = data['freq_response'][:]
 
-			amp_time = data['amp_time'][:]
-			amp_response = data['amp_response'][:]
+	amp_time = data['amp_time'][:]
+	amp_response = data['amp_response'][:]
 
-			fig, ax = plt.subplots(2, figsize=(10, 10), constrained_layout=True)
-			unit = int(key.split('_')[-1]) + 1
-			fig.suptitle('Unit_{:04d} response'.format(unit), fontsize=16)
+	fig, ax = plt.subplots(2, figsize=(10, 10), constrained_layout=True)
+	unit = int(key.split('_')[-1]) + 1
+	fig.suptitle('Unit_{:04d} response'.format(unit), fontsize=16)
+	
+	ax[0].plot(freq_time, freq_response, color='tab:gray')
+	ax[1].plot(amp_time, amp_response, color='tab:gray')
+	
+	ax[0].set_title('Frequency modulation')
+	ax[1].set_title('Amplitude modulation')
+
+	if flash_type == 1 or flash_type == 3:
+		# Freq peaks and fitting
+		t_on_fit = data['freq_on_fitting'][:][0]
+		v_on_fit = data['freq_on_fitting'][:][1]
+		t_on_peaks = data['freq_on_peaks'][:][0]
+		v_on_peaks = data['freq_on_peaks'][:][1]
+
+		on_id_max = np.argmax(np.isnan(t_on_peaks)) 
+
+		ax[0].plot(t_on_fit, v_on_fit, color='tab:cyan')
+		ax[0].plot(t_on_peaks[:on_id_max], v_on_peaks[:on_id_max], 'o', color='tab:blue', label='ON')
+		
+		# Amp peaks and fitting
+		t_on_fit = data['amp_on_fitting'][:][0]
+		v_on_fit = data['amp_on_fitting'][:][1]
+		t_on_peaks = data['amp_on_peaks'][:][0]
+		v_on_peaks = data['amp_on_peaks'][:][1]
+
+		ax[1].plot(t_on_fit, v_on_fit, color='tab:cyan')
+		ax[1].plot(t_on_peaks, v_on_peaks, 'o', color='tab:blue', label='ON')
+		
+		ax[0].legend()
+		ax[1].legend()
+
+	if flash_type == 2 or flash_type == 3:
+		# Freq peaks and fitting
+		t_off_fit = data['freq_off_fitting'][:][0]
+		v_off_fit = data['freq_off_fitting'][:][1]
+		t_off_peaks = data['freq_off_peaks'][:][0]
+		v_off_peaks = data['freq_off_peaks'][:][1]
+
+		off_id_max = np.argmax(np.isnan(t_off_peaks))
+
+		ax[0].plot(t_off_fit, v_off_fit, color='tab:olive')
+		ax[0].plot(t_off_peaks[:off_id_max], v_off_peaks[:off_id_max], 'o', color='tab:green', label='OFF')
+		
+		# Amp peaks and fitting
+		t_off_fit = data['amp_off_fitting'][:][0]
+		v_off_fit = data['amp_off_fitting'][:][1]
+		t_off_peaks = data['amp_off_peaks'][:][0]
+		v_off_peaks = data['amp_off_peaks'][:][1]
+
+		ax[1].plot(t_off_fit, v_off_fit, color='tab:olive')
+		ax[1].plot(t_off_peaks, v_off_peaks, 'o', color='tab:green', label='OFF')
+		
+		ax[0].legend()
+		ax[1].legend()
+
+	plt.savefig(os.path.join(save_dir, 'Unit_{:04d}'.format(unit)))
+	plt.cla()
+	plt.clf() 
+	plt.close(fig)
+
+def plot_features(key, panalysis, csv_feat, save_dir):
+	# Stimulus time and signal			
+	df_feat = pd.read_csv(csv_feat, index_col=0)
+	
+	flash_type = df_feat.loc[key]['flash_type']
+	data = resp['{}/cell_resp/'.format(key)]
+
+	fig, ax = plt.subplots(2, 3, figsize=(9, 6), constrained_layout=True)
+	unit = int(key.split('_')[-1]) + 1
+	fig.suptitle('Unit_{:04d} response'.format(unit), fontsize=16)
+	
+	pt = 100
+	lin_freq = np.linspace(0, 15, pt)
+	ax[0][2].plot(lin_freq, lin_freq, '--', color='gray')
+	ax[1][2].plot(lin_freq, np.ones(100), '--', color='gray')
+	
+	ax[0][0].set_xlim([-0.75, 15.75])
+	ax[0][1].set_xlim([-0.75, 15.75])
+	ax[0][2].set_xlim([-0.75, 15.75])
+	ax[1][0].set_xlim([-0.05, 0.55])
+	ax[1][1].set_xlim([-0.05, 0.55])
+	ax[1][2].set_xlim([-0.05, 0.55])
+	
+	ax[0][1].set_ylim([-0.05, 1.0])
+	ax[1][1].set_ylim([-0.05, 1.0])
+	
+	ax[0][2].set_ylim([-0.75, 15.75])
+	ax[1][2].set_ylim([0.5, 1.5])
+	
+	ax[0][0].set_title('Freq fitting')
+	ax[0][1].set_title('Freq delay')
+	ax[0][2].set_title('Freq response')
+	
+	ax[1][0].set_title('Amp fitting')
+	ax[1][1].set_title('Amp delay')
+	ax[1][2].set_title('Amp response')
+	
+	ax[0][0].set_xlabel('fstimulus [Hz]')
+	ax[0][0].set_ylabel('fspike [Hz]')
+	ax[0][1].set_xlabel('fstimulus [Hz]')
+	ax[0][1].set_ylabel('Delay [s]')
+	ax[0][2].set_xlabel('fstimulus [Hz]')
+	ax[0][2].set_ylabel('fresponse [Hz]')
+	
+	ax[1][0].set_xlabel('Amplitude')
+	ax[1][0].set_ylabel('fspike [Hz]')
+	ax[1][1].set_xlabel('Amplitude')
+	ax[1][1].set_ylabel('Delay [s]')
+	ax[1][2].set_xlabel('Amplitude')
+	ax[1][2].set_ylabel('fresponse [Hz]')        
+
+	if flash_type == 1 or flash_type == 3:            
+			t_on_fit = data['freq_on_fitting'][:][0]
+			v_on_fit = data['freq_on_fitting'][:][1]
+			t_on_peaks = data['freq_on_peaks'][:][0]
+			v_on_peaks = data['freq_on_peaks'][:][1]
+			freq_on_delays = data['freq_on_delays'][:]
+			freq_on_resp = data['freq_on_fresp'][:]
+			t_on_delay_fit = data['freq_on_delay_fit'][:][0]
+			v_on_delay_fit = data['freq_on_delay_fit'][:][1]
 			
-			ax[0].plot(freq_time, freq_response, color='tab:gray')
-			ax[1].plot(amp_time, amp_response, color='tab:gray')
+			on_id_max = np.argmax(np.isnan(t_on_peaks))
 			
-			ax[0].set_title('Frequency modulation')
-			ax[1].set_title('Amplitude modulation')
+			ax[0][0].plot(t_on_fit, v_on_fit, color='tab:blue', label='ON')
+			
+			if on_id_max != 0:
+					ax[0][0].plot(t_on_peaks[:on_id_max], v_on_peaks[:on_id_max], '.-', color='tab:cyan', label='ON')
+					ax[0][1].plot(t_on_peaks[:on_id_max], freq_on_delays[:on_id_max], '.-', color='tab:cyan')            
+					ax[0][1].plot(t_on_delay_fit, v_on_delay_fit, color='tab:blue')
+					ax[0][2].plot(t_on_peaks[:on_id_max - 1], freq_on_resp[:on_id_max - 1], '.-', color='tab:cyan')   
+			
+			t_on_fit = data['amp_on_fitting'][:][0]
+			v_on_fit = data['amp_on_fitting'][:][1]
+			t_on_peaks = data['amp_on_peaks'][:][0]
+			v_on_peaks = data['amp_on_peaks'][:][1]
+			amp_on_delays = data['amp_on_delays'][:]
+			amp_on_resp = data['amp_on_fresp'][:]
 
-			if flash_type == 1 or flash_type == 3:
-				# Freq peaks and fitting
-				t_on_fit = data['freq_on_fitting'][:][0]
-				v_on_fit = data['freq_on_fitting'][:][1]
-				t_on_peaks = data['freq_on_peaks'][:][0]
-				v_on_peaks = data['freq_on_peaks'][:][1]
+			ax[1][0].plot(t_on_fit, v_on_fit, color='tab:blue')
+			ax[1][0].plot(t_on_peaks, v_on_peaks, '.-', color='tab:cyan')
 
-				on_id_max = np.argmax(np.isnan(t_on_peaks)) 
+			ax[1][1].plot(t_on_peaks, amp_on_delays, '.-', color='tab:cyan')
 
-				ax[0].plot(t_on_fit, v_on_fit, color='tab:cyan')
-				ax[0].plot(t_on_peaks[:on_id_max], v_on_peaks[:on_id_max], 'o', color='tab:blue', label='ON')
-				
-				# Amp peaks and fitting
-				t_on_fit = data['amp_on_fitting'][:][0]
-				v_on_fit = data['amp_on_fitting'][:][1]
-				t_on_peaks = data['amp_on_peaks'][:][0]
-				v_on_peaks = data['amp_on_peaks'][:][1]
+			ax[1][2].plot(t_on_peaks[:-1], amp_on_resp, '.-', color='tab:cyan')        
 
-				ax[1].plot(t_on_fit, v_on_fit, color='tab:cyan')
-				ax[1].plot(t_on_peaks, v_on_peaks, 'o', color='tab:blue', label='ON')
-				
-				ax[0].legend()
-				ax[1].legend()
+	if flash_type == 2 or flash_type == 3:
+			t_off_fit = data['freq_off_fitting'][:][0]
+			v_off_fit = data['freq_off_fitting'][:][1]
+			t_off_peaks = data['freq_off_peaks'][:][0]
+			v_off_peaks = data['freq_off_peaks'][:][1]
+			freq_off_delays = data['freq_off_delays'][:]
+			freq_off_resp = data['freq_off_fresp'][:]
+			t_off_delay_fit = data['freq_off_delay_fit'][:][0]
+			v_off_delay_fit = data['freq_off_delay_fit'][:][1]
+			
+			off_id_max = np.argmax(np.isnan(t_off_peaks))
+			
+			ax[0][0].plot(t_off_fit, v_off_fit, color='tab:green', label='OFF')
+			
+			if off_id_max != 0:
+					ax[0][0].plot(t_off_peaks[:off_id_max], v_off_peaks[:off_id_max], '.-', color='tab:olive', label='OFF')
+					ax[0][1].plot(t_off_peaks[:off_id_max], freq_off_delays[:off_id_max], '.-', color='tab:olive')            
+					ax[0][1].plot(t_off_delay_fit, v_off_delay_fit, color='tab:blue')
+					ax[0][2].plot(t_off_peaks[:off_id_max - 1], freq_off_resp[:off_id_max - 1], '.-', color='tab:olive')
+			
+			t_off_fit = data['amp_off_fitting'][:][0]
+			v_off_fit = data['amp_off_fitting'][:][1]
+			t_off_peaks = data['amp_off_peaks'][:][0]
+			v_off_peaks = data['amp_off_peaks'][:][1]
+			amp_off_delays = data['amp_off_delays'][:]
+			amp_off_resp = data['amp_off_fresp'][:]
 
-			if flash_type == 2 or flash_type == 3:
-				# Freq peaks and fitting
-				t_off_fit = data['freq_off_fitting'][:][0]
-				v_off_fit = data['freq_off_fitting'][:][1]
-				t_off_peaks = data['freq_off_peaks'][:][0]
-				v_off_peaks = data['freq_off_peaks'][:][1]
+			ax[1][0].plot(t_off_fit, v_off_fit, color='tab:green')
+			ax[1][0].plot(t_off_peaks, v_off_peaks, '.-', color='tab:olive')
 
-				off_id_max = np.argmax(np.isnan(t_off_peaks))
+			ax[1][1].plot(t_off_peaks, amp_off_delays, '.-', color='tab:olive')
 
-				ax[0].plot(t_off_fit, v_off_fit, color='tab:olive')
-				ax[0].plot(t_off_peaks[:off_id_max], v_off_peaks[:off_id_max], 'o', color='tab:green', label='OFF')
-				
-				# Amp peaks and fitting
-				t_off_fit = data['amp_off_fitting'][:][0]
-				v_off_fit = data['amp_off_fitting'][:][1]
-				t_off_peaks = data['amp_off_peaks'][:][0]
-				v_off_peaks = data['amp_off_peaks'][:][1]
+			ax[1][2].plot(t_off_peaks[:-1], amp_off_resp, '.-', color='tab:olive')    
+					
+			handles, labels = ax[0][0].get_legend_handles_labels()
+			fig.legend(handles, labels, loc='center right')
 
-				ax[1].plot(t_off_fit, v_off_fit, color='tab:olive')
-				ax[1].plot(t_off_peaks, v_off_peaks, 'o', color='tab:green', label='OFF')
-				
-				ax[0].legend()
-				ax[1].legend()
-
-			plt.savefig(os.path.join(save_dir, '{}.png'.format(key)))
+			plt.savefig(os.path.join(save_dir, 'Unit_{:04d}.png'.format(unit)))
 			plt.cla()
 			plt.clf() 
 			plt.close(fig)
@@ -187,11 +312,9 @@ if __name__ == "__main__":
 		feat_file = os.path.join(exp_output, 'features.csv')
 		
 		print('Response and features:')
-		"""
 		with h5py.File(sorting_file, 'r') as spks:
 			get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
-														panalysis=resp_file, feat_file=feat_file)
-		"""
+														panalysis=resp_file, feat_file=feat_file)		
 
 		print('Figures:')
 		fig_dir = os.path.join(exp_output, 'fig')
@@ -201,8 +324,15 @@ if __name__ == "__main__":
 		resp_dir = os.path.join(fig_dir, 'resp')
 		if os.path.isdir(resp_dir) == False:
 			os.mkdir(resp_dir)
+		
+		feat_dir = os.path.join(fig_dir, 'feat')
+		if os.path.isdir(feat_dir) == False:
+			os.mkdir(feat_dir)
 
-		plot_resp(resp_file, feat_file, resp_dir)
+		with h5py.File(resp_file, 'r') as resp:
+			for key in tqdm(resp.keys()):
+				plot_resp(key, resp, feat_file, resp_dir)
+
 		plt.close('all')
 
 		print('Done!\n')
