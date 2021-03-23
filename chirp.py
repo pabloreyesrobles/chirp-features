@@ -342,7 +342,7 @@ def freq_exp_fit(t_spike, v_spike, bins_fit):
 		warnings.simplefilter("error", OptimizeWarning)
 		try:
 			bounds = ((-np.inf, 0, 0), (0, np.inf, np.inf))
-			popt, pcov = curve_fit(Exp, t_filter, v_filter, bounds=bounds)
+			popt, pcov = curve_fit(Exp, t_filter, v_filter)
 
 			delay_start = popt[0]
 			scale = popt[1]
@@ -355,9 +355,9 @@ def freq_exp_fit(t_spike, v_spike, bins_fit):
 
 		except OptimizeWarning:
 			pass
-		except ValueError:
+		except (ValueError, RuntimeError):
 			pass
-		except RuntimeError:
+		except:
 			pass
 	
 	return (delay_start, scale, delay_end, x_new, y_new, error)

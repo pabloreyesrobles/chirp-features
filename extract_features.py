@@ -93,9 +93,11 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 		ax[1].legend()
 
 	plt.savefig(os.path.join(save_dir, 'Unit_{:04d}'.format(unit)))
-	plt.cla()
-	plt.clf() 
-	plt.close(fig)
+
+	[_ax.clear() for _ax in ax]
+	fig.clf()
+	fig.clear()
+	plt.close('all')
 
 def plot_features(key, panalysis, csv_feat, save_dir):
 	# Stimulus time and signal			
@@ -154,13 +156,13 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 		return np.multiply(np.ones_like(arr) * 0.625 / 10, arr, out=np.full_like(arr, np.nan, dtype=np.double), where=arr!=np.nan)
 
 	if flash_type == 1 or flash_type == 3:            
-			t_on_fit = time_to_amp(data['freq_on_fitting'][:][0])
+			t_on_fit = data['freq_on_fitting'][:][0]
 			v_on_fit = data['freq_on_fitting'][:][1]
-			t_on_peaks = time_to_amp(data['freq_on_peaks'][:][0])
+			t_on_peaks = data['freq_on_peaks'][:][0]
 			v_on_peaks = data['freq_on_peaks'][:][1]
 			freq_on_delays = data['freq_on_delays'][:]
 			freq_on_resp = data['freq_on_fresp'][:]
-			t_on_delay_fit = time_to_amp(data['freq_on_delay_fit'][:][0])
+			t_on_delay_fit = data['freq_on_delay_fit'][:][0]
 			v_on_delay_fit = data['freq_on_delay_fit'][:][1]
 			
 			on_id_max = np.argmax(np.isnan(t_on_peaks))
@@ -188,13 +190,13 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 			ax[1][2].plot(t_on_peaks[:-1], amp_on_resp, '.-', color='tab:cyan')        
 
 	if flash_type == 2 or flash_type == 3:
-			t_off_fit = time_to_amp(data['freq_off_fitting'][:][0])
+			t_off_fit = data['freq_off_fitting'][:][0]
 			v_off_fit = data['freq_off_fitting'][:][1]
-			t_off_peaks = time_to_amp(data['freq_off_peaks'][:][0])
+			t_off_peaks = data['freq_off_peaks'][:][0]
 			v_off_peaks = data['freq_off_peaks'][:][1]
 			freq_off_delays = data['freq_off_delays'][:]
 			freq_off_resp = data['freq_off_fresp'][:]
-			t_off_delay_fit = time_to_amp(data['freq_off_delay_fit'][:][0])
+			t_off_delay_fit = data['freq_off_delay_fit'][:][0]
 			v_off_delay_fit = data['freq_off_delay_fit'][:][1]
 			
 			off_id_max = np.argmax(np.isnan(t_off_peaks))
@@ -224,10 +226,13 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 			handles, labels = ax[0][0].get_legend_handles_labels()
 			fig.legend(handles, labels, loc='center right')
 
-			plt.savefig(os.path.join(save_dir, 'Unit_{:04d}.png'.format(unit)))
-			plt.cla()
-			plt.clf() 
-			plt.close(fig)
+	plt.savefig(os.path.join(save_dir, 'Unit_{:04d}.png'.format(unit)))
+	
+	[_ax.clear() for _ax in ax[0]]
+	[_ax.clear() for _ax in ax[1]]
+	fig.clf()
+	fig.clear()
+	plt.close('all')
 
 if __name__ == "__main__":
 	config = ConfigParser(interpolation=ExtendedInterpolation())
@@ -306,7 +311,7 @@ if __name__ == "__main__":
 
 		events = get_chirp_subevents(sync_file, start_end_path, repeated_path, output_file, names, times)
 		if isinstance(events, pd.DataFrame) is not True:
-			print('Error while processing')
+			print('Error getting chirp sub events')
 			continue
 		
 		exp_output = os.path.join(params['Output'], exp_name)
@@ -316,12 +321,13 @@ if __name__ == "__main__":
 		resp_file = os.path.join(exp_output, 'response.hdf5')
 		feat_file = os.path.join(exp_output, 'features.csv')
 
-		if len(sys.argv) > 1:
-			if '-fig' not in sys.argv: # Fig only
-				print('Response and features:')
-				with h5py.File(sorting_file, 'r') as spks:
-					get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
-													 panalysis=resp_file, feat_file=feat_file)
+		#if len(sys.argv) > 1:
+		#	if '-fig' not in sys.argv: # Fig only
+
+		print('Response and features:')
+		with h5py.File(sorting_file, 'r') as spks:
+			get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
+												panalysis=resp_file, feat_file=feat_file)
 
 		print('Figures:')
 		fig_dir = os.path.join(exp_output, 'fig')
