@@ -1,15 +1,14 @@
-from configparser import ConfigParser, ExtendedInterpolation
-
-import h5py
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+
+import numpy as np
 import pandas as pd
-import seaborn as sns
 import sys
 import os
 import json
 import faulthandler
+
+import h5py
 from tqdm import tqdm
 
 from scipy.signal import hann, find_peaks, hilbert
@@ -20,6 +19,8 @@ from chirp import chirp_generator, get_pop_response, get_chirp_subevents
 from spikelib import visualizations as vis
 from ipywidgets import IntSlider, interact, Dropdown, fixed
 from spikelib import spiketools as spkt
+
+from configparser import ConfigParser, ExtendedInterpolation
 
 def plot_resp(key, panalysis, csv_feat, save_dir):
 	# Stimulus time and signal			
@@ -274,6 +275,12 @@ if __name__ == "__main__":
 	group_features = None
 	faulthandler.enable()
 
+	fig_only = False
+
+	if len(sys.argv) > 1:
+		if '-fig' in sys.argv: # Fig only
+			fig_only = True
+
 	for exp in params['Experiments']:
 		os.chdir(exp)	
 		cfg_file = 'config.ini'
@@ -309,7 +316,12 @@ if __name__ == "__main__":
 
 		print('Processing: {} experiment...'.format(exp_name))
 
-		events = get_chirp_subevents(sync_file, start_end_path, repeated_path, output_file, names, times)
+		try:
+			events = get_chirp_subevents(sync_file, start_end_path, repeated_path, output_file, names, times)
+		except:
+			print('Error getting chirp sub events')
+			continue
+
 		if isinstance(events, pd.DataFrame) is not True:
 			print('Error getting chirp sub events')
 			continue
@@ -321,13 +333,15 @@ if __name__ == "__main__":
 		resp_file = os.path.join(exp_output, 'response.hdf5')
 		feat_file = os.path.join(exp_output, 'features.csv')
 
-		#if len(sys.argv) > 1:
-		#	if '-fig' not in sys.argv: # Fig only
-
-		print('Response and features:')
-		with h5py.File(sorting_file, 'r') as spks:
-			get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
-												panalysis=resp_file, feat_file=feat_file)
+		if fig_only == False:
+			print('Response and features:')
+			try:
+				with h5py.File(sorting_file, 'r') as spks:
+					get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
+														panalysis=resp_file, feat_file=feat_file)
+			except:
+				print('Error getting response and features')
+				continue
 
 		print('Figures:')
 		fig_dir = os.path.join(exp_output, 'fig')
@@ -346,8 +360,7 @@ if __name__ == "__main__":
 			for key in tqdm(resp.keys()):
 				plot_resp(key, resp, feat_file, resp_dir)
 				plot_features(key, resp, feat_file, feat_dir)
-
-		plt.close('all')
+				plt.close('all')
 
 		print('Done!\n')
 		
