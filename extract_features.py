@@ -17,7 +17,6 @@ from scipy.optimize import curve_fit
 
 from chirp import chirp_generator, get_pop_response, get_chirp_subevents
 from spikelib import visualizations as vis
-from ipywidgets import IntSlider, interact, Dropdown, fixed
 from spikelib import spiketools as spkt
 
 from configparser import ConfigParser, ExtendedInterpolation
