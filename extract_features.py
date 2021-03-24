@@ -322,7 +322,7 @@ if __name__ == "__main__":
 			continue
 
 		if isinstance(events, pd.DataFrame) is not True:
-			print('Error getting chirp sub events')
+			print('Error computing chirp sub events')
 			continue
 		
 		exp_output = os.path.join(params['Output'], exp_name)
