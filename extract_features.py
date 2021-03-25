@@ -206,7 +206,7 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 			if off_id_max != 0:
 					ax[0][0].plot(t_off_peaks[:off_id_max], v_off_peaks[:off_id_max], '.-', color='tab:olive', label='OFF')
 					ax[0][1].plot(t_off_peaks[:off_id_max], freq_off_delays[:off_id_max], '.-', color='tab:olive')            
-					ax[0][1].plot(t_off_delay_fit, v_off_delay_fit, color='tab:blue')
+					ax[0][1].plot(t_off_delay_fit, v_off_delay_fit, color='tab:green')
 					ax[0][2].plot(t_off_peaks[:off_id_max - 1], freq_off_resp[:off_id_max - 1], '.-', color='tab:olive')
 			
 			t_off_fit = time_to_amp(data['amp_off_fitting'][:][0])
@@ -317,7 +317,8 @@ if __name__ == "__main__":
 
 		try:
 			events = get_chirp_subevents(sync_file, start_end_path, repeated_path, output_file, names, times)
-		except:
+		except Exception as e:
+			print(e)
 			print('Error getting chirp sub events')
 			continue
 
