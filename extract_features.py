@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
@@ -34,17 +36,27 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 	amp_time = data['amp_time'][:]
 	amp_response = data['amp_response'][:]
 
+	def time_to_amp(arr):
+		# Time axis changed to amplitude modulation
+		# Max aplitude is 0.5. 0.125 added because of time_adap stim at the end
+		return np.multiply(np.ones_like(arr) * 0.625 / 10, arr, out=np.full_like(arr, np.nan, dtype=np.double), where=arr!=np.nan)
+
 	fig, ax = plt.subplots(2, figsize=(10, 10), constrained_layout=True)
-	unit = int(key.split('_')[-1]) + 1
-	fig.suptitle('Unit_{:04d} response'.format(unit), fontsize=16)
+	fig.suptitle('{} response'.format(key), fontsize=16)
 	
 	ax[0].plot(freq_time, freq_response, color='tab:gray')
-	ax[1].plot(amp_time, amp_response, color='tab:gray')
+	ax[1].plot(time_to_amp(amp_time), amp_response, color='tab:gray')
 	
 	ax[0].set_title('Frequency modulation')
 	ax[1].set_title('Amplitude modulation')
 
-	if flash_type == 1 or flash_type == 3:
+	ax[0].set_xlabel('Stimulus freq [Hz]')
+	ax[0].set_ylabel('Cell spike rate [Hz]')
+
+	ax[1].set_xlabel('Stimulus amp modulation [-]')
+	ax[1].set_ylabel('Cell spike rate [Hz]')
+
+	if flash_type == 'ON' or flash_type == 'ON/OFF':
 		# Freq peaks and fitting
 		t_on_fit = data['freq_on_fitting'][:][0]
 		v_on_fit = data['freq_on_fitting'][:][1]
@@ -57,9 +69,9 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 		ax[0].plot(t_on_peaks[:on_id_max], v_on_peaks[:on_id_max], 'o', color='tab:blue', label='ON')
 		
 		# Amp peaks and fitting
-		t_on_fit = data['amp_on_fitting'][:][0]
+		t_on_fit = time_to_amp(data['amp_on_fitting'][:][0])
 		v_on_fit = data['amp_on_fitting'][:][1]
-		t_on_peaks = data['amp_on_peaks'][:][0]
+		t_on_peaks = time_to_amp(data['amp_on_peaks'][:][0])
 		v_on_peaks = data['amp_on_peaks'][:][1]
 
 		ax[1].plot(t_on_fit, v_on_fit, color='tab:cyan')
@@ -68,7 +80,7 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 		ax[0].legend()
 		ax[1].legend()
 
-	if flash_type == 2 or flash_type == 3:
+	if flash_type == 'OFF' or flash_type == 'ON/OFF':
 		# Freq peaks and fitting
 		t_off_fit = data['freq_off_fitting'][:][0]
 		v_off_fit = data['freq_off_fitting'][:][1]
@@ -81,9 +93,9 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 		ax[0].plot(t_off_peaks[:off_id_max], v_off_peaks[:off_id_max], 'o', color='tab:green', label='OFF')
 		
 		# Amp peaks and fitting
-		t_off_fit = data['amp_off_fitting'][:][0]
+		t_off_fit = time_to_amp(data['amp_off_fitting'][:][0])
 		v_off_fit = data['amp_off_fitting'][:][1]
-		t_off_peaks = data['amp_off_peaks'][:][0]
+		t_off_peaks = time_to_amp(data['amp_off_peaks'][:][0])
 		v_off_peaks = data['amp_off_peaks'][:][1]
 
 		ax[1].plot(t_off_fit, v_off_fit, color='tab:olive')
@@ -92,7 +104,7 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 		ax[0].legend()
 		ax[1].legend()
 
-	plt.savefig(os.path.join(save_dir, 'Unit_{:04d}'.format(unit)))
+	plt.savefig(os.path.join(save_dir, '{}.png'.format(key)))
 
 	[_ax.clear() for _ax in ax]
 	fig.clf()
@@ -107,8 +119,7 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 	data = resp['{}/cell_resp/'.format(key)]
 
 	fig, ax = plt.subplots(2, 3, figsize=(9, 6), constrained_layout=True)
-	unit = int(key.split('_')[-1]) + 1
-	fig.suptitle('Unit_{:04d} response'.format(unit), fontsize=16)
+	fig.suptitle('{} response'.format(key), fontsize=16)
 	
 	pt = 100
 	lin_freq = np.linspace(0, 15, pt)
@@ -151,11 +162,11 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 	ax[1][2].set_ylabel('fresponse [Hz]')
 
 	def time_to_amp(arr):
-		# Se cambia el eje de tiempo por estímulo de amplitud
-		# Amplitud máxima es 0.5 pero se agrega 0.125 por la extensión de 8 a 10 segundos del tiempo de adaptación
+		# Time axis changed to amplitude modulation
+		# Max aplitude is 0.5. 0.125 added because of time_adap stim at the end
 		return np.multiply(np.ones_like(arr) * 0.625 / 10, arr, out=np.full_like(arr, np.nan, dtype=np.double), where=arr!=np.nan)
 
-	if flash_type == 1 or flash_type == 3:            
+	if flash_type == 'ON' or flash_type == 'ON/OFF':            
 			t_on_fit = data['freq_on_fitting'][:][0]
 			v_on_fit = data['freq_on_fitting'][:][1]
 			t_on_peaks = data['freq_on_peaks'][:][0]
@@ -189,7 +200,7 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 
 			ax[1][2].plot(t_on_peaks[:-1], amp_on_resp, '.-', color='tab:cyan')        
 
-	if flash_type == 2 or flash_type == 3:
+	if flash_type == 'OFF' or flash_type == 'ON/OFF':
 			t_off_fit = data['freq_off_fitting'][:][0]
 			v_off_fit = data['freq_off_fitting'][:][1]
 			t_off_peaks = data['freq_off_peaks'][:][0]
@@ -226,7 +237,7 @@ def plot_features(key, panalysis, csv_feat, save_dir):
 			handles, labels = ax[0][0].get_legend_handles_labels()
 			fig.legend(handles, labels, loc='center right')
 
-	plt.savefig(os.path.join(save_dir, 'Unit_{:04d}.png'.format(unit)))
+	plt.savefig(os.path.join(save_dir, '{}.png'.format(key)))
 	
 	[_ax.clear() for _ax in ax[0]]
 	[_ax.clear() for _ax in ax[1]]
@@ -275,10 +286,14 @@ if __name__ == "__main__":
 	faulthandler.enable()
 
 	fig_only = False
+	no_fig = False
 
 	if len(sys.argv) > 1:
 		if '-fig' in sys.argv: # Fig only
 			fig_only = True
+		if '-no-fig' in sys.argv:
+			no_fig = True
+			print('Skipping figures')
 
 	for exp in params['Experiments']:
 		os.chdir(exp)	
@@ -298,7 +313,7 @@ if __name__ == "__main__":
 		start_end_path = config['SYNC']['frametime']
 		repeated_path = config['SYNC']['repeated']
 		output_file = os.path.join(config['SYNC']['folder'],
-									'sub_event_list_{}_protocol_name.csv'.format(exp_name))
+									'sub_event_list_{}_chirp.csv'.format(exp_name))
 		output_features = os.path.join(config['SYNC']['folder'],
 										'chirp_features_{}.csv'.format(exp_name))
 
@@ -315,13 +330,15 @@ if __name__ == "__main__":
 
 		print('Processing: {} experiment...'.format(exp_name))
 
+		events = get_chirp_subevents(sync_file, start_end_path, repeated_path, output_file, names, times)
+		"""
 		try:
 			events = get_chirp_subevents(sync_file, start_end_path, repeated_path, output_file, names, times)
 		except Exception as e:
 			print(e)
 			print('Error getting chirp sub events')
 			continue
-
+		"""
 		if isinstance(events, pd.DataFrame) is not True:
 			print('Error computing chirp sub events')
 			continue
@@ -333,34 +350,36 @@ if __name__ == "__main__":
 		resp_file = os.path.join(exp_output, 'response.hdf5')
 		feat_file = os.path.join(exp_output, 'features.csv')
 
-		if fig_only == False:
+		if fig_only is False:
 			print('Response and features:')
 			try:
 				with h5py.File(sorting_file, 'r') as spks:
 					get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
 														panalysis=resp_file, feat_file=feat_file)
-			except:
+			except Warning as e:
+				print(e)
 				print('Error getting response and features')
 				continue
 
-		print('Figures:')
-		fig_dir = os.path.join(exp_output, 'fig')
-		if os.path.isdir(fig_dir) == False:
-			os.mkdir(fig_dir)
+		if no_fig is False:
+			print('Figures:')
+			fig_dir = os.path.join(exp_output, 'fig')
+			if os.path.isdir(fig_dir) == False:
+				os.mkdir(fig_dir)
 
-		resp_dir = os.path.join(fig_dir, 'resp')
-		if os.path.isdir(resp_dir) == False:
-			os.mkdir(resp_dir)
-		
-		feat_dir = os.path.join(fig_dir, 'feat')
-		if os.path.isdir(feat_dir) == False:
-			os.mkdir(feat_dir)
+			resp_dir = os.path.join(fig_dir, 'resp')
+			if os.path.isdir(resp_dir) == False:
+				os.mkdir(resp_dir)
+			
+			feat_dir = os.path.join(fig_dir, 'feat')
+			if os.path.isdir(feat_dir) == False:
+				os.mkdir(feat_dir)
 
-		with h5py.File(resp_file, 'r') as resp:
-			for key in tqdm(resp.keys()):
-				plot_resp(key, resp, feat_file, resp_dir)
-				plot_features(key, resp, feat_file, feat_dir)
-				plt.close('all')
+			with h5py.File(resp_file, 'r') as resp:
+				for key in tqdm(resp.keys()):
+					plot_resp(key, resp, feat_file, resp_dir)
+					plot_features(key, resp, feat_file, feat_dir)
+					plt.close('all')
 
 		print('Done!\n')
 		

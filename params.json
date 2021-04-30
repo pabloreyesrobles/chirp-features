@@ -1,8 +1,10 @@
 {
 	"Experiments":
 	[
-		"../../MEA-report/enfermos_jovenes/MR-0312",
-		"./MR-0356"
+		"../Ensembles/MR-0227",
+		"../Ensembles/MR-0242",
+		"../Ensembles/MR-0342",
+		"../Ensembles/MR-0387"
 	],
-	"Output": "./results"
+	"Output": "../Ensembles/results"
 }

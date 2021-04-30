@@ -9,6 +9,26 @@ import pandas as pd
 import warnings
 import h5py
 
+class PeakDecoding:
+	
+	def __init__(self):
+		# Time, intensity and delay respect to ON/OFF stimulus
+		self.tim_spike = np.array([])
+		self.val_spike = np.array([])
+		self.delays = np.array([])
+
+		# Time and values arrays of response fitting
+		self.time_fit = np.array([])
+		self.resp_fit = np.array([])
+
+		# Time and values arrays of delay fitting
+		self.dtime_fit = np.array([])
+		self.dresp_fit = np.array([])
+
+		# Frequency response of data
+		self.fresp = np.array([])
+
+
 def matlab_hanning(n):
 	return hann(n + 2)[1:-1]
 
@@ -159,8 +179,8 @@ def get_chirp_subevents(sync_path, start_end_path, repeated_path, output_file, n
 	return events
 
 def get_freq_peaks(resp):
-	fmin = np.mean(resp) * 0.2
-	freq_peaks, _ = find_peaks(resp, height=fmin, prominence=1.5) # heuristica
+	fmin = np.mean(resp) * 0.1
+	freq_peaks, _ = find_peaks(resp, height=fmin, prominence=fmin*0.5) # heuristica
 
 	return freq_peaks
 
@@ -188,8 +208,24 @@ def freq_on_peak_sel(resp, bins_fit, min_lines, max_lines, peaks):
 		return -0.35 * np.exp(-idx * 0.45) + 0.7
 	def dt_1_factor(idx):
 		return 0.05 * np.exp(-idx * 0.45) + 1.15
+	def Exp(x, a, b, c):
+		return a * np.exp(-x * b) + c
+	
+	a1, b1, c1 = 0.3, 0.6, 0.165
+	a2, b2, c2 = 0.6, 0.6, 0.195
+	a3, b3, c3 = 0.15, 0.6, 0.125
 	
 	for idx, line in enumerate(min_lines):
+		dt_0 = Exp(line, a3, b3, c3)
+		dt_1 = Exp(line, a2, b2, c2)		
+		if idx != 0:
+				if delay[idx - 1] < Exp(line, a1, b1, c1):
+					dt_0 -= delay[idx - 1] * 0.05
+					dt_1 -= delay[idx - 1] * 0.1
+				else:
+					dt_0 += delay[idx - 1] * 0.08
+					dt_1 += delay[idx - 1] * 0.2
+
 		dt.append((dt_0, dt_1))
 			
 		idx_search = np.logical_and(bins_fit[peaks] > line + dt_0, bins_fit[peaks] < line + dt_1)
@@ -223,6 +259,8 @@ def freq_off_peak_sel(resp, bins_fit, min_lines, max_lines, peaks):
 	# Para graficar
 	dt = []
 
+	# Peak conflict identifier
+
 	t_spike = np.empty(len(max_lines))
 	t_spike[:] = np.nan
 
@@ -236,8 +274,24 @@ def freq_off_peak_sel(resp, bins_fit, min_lines, max_lines, peaks):
 		return -0.35 * np.exp(-idx * 0.35) + 0.7
 	def dt_1_factor(idx):
 		return 0.05 * np.exp(-idx * 0.45) + 1.15
+	def Exp(x, a, b, c):
+		return a * np.exp(-x * b) + c
+	
+	a1, b1, c1 = 0.3, 0.6, 0.165
+	a4, b4, c4 = 0.6, 0.6, 0.195
+	a5, b5, c5 = 0.05, 0.6, 0.13
 		
 	for idx, line in enumerate(max_lines):
+		dt_0 = Exp(line, a5, b5, c5)
+		dt_1 = Exp(line, a4, b4, c4)
+		if idx != 0:
+			if delay[idx - 1] < Exp(line, a1, b1, c1):
+				dt_0 -= delay[idx - 1] * 0.1
+				dt_1 -= delay[idx - 1] * 0.1
+			else:
+				dt_0 += delay[idx - 1] * 0.1
+				dt_1 += delay[idx - 1] * 0.3
+
 		dt.append((dt_0, dt_1))
 		
 		idx_search = np.logical_and(bins_fit[peaks] > line + dt_0, bins_fit[peaks] < line + dt_1)
@@ -390,6 +444,10 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 	off_fcut = np.nan
 	off_delay = np.nan
 
+	# TODO: will give order to script
+	#on_decode = PeakDecoding()
+	#off_decode = PeakDecoding()
+
 	on_tim_spike, on_val_spike, on_delays = ([], [], [])
 	on_time_fit, on_resp_fit = ([], [])
 	on_dtime_fit, on_dresp_fit = ([], [])
@@ -435,7 +493,11 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 		
 		if len(off_delays[off_id_min:off_id_max]) > 0 or np.count_nonzero(~np.isnan(off_delays[off_id_min:off_id_max])) > 0:
 			off_delay = np.nanmean(off_delays[off_id_min:off_id_max])
-
+	
+	try:
+		peak_conflict = any(i in on_tim_spike[:on_id_max] for i in off_tim_spike[:off_id_max])
+	except:
+		peak_conflict = 0
 	#SNR = 20 * np.log10(np.max(resp) / (2 * np.mean(resp)))
 	
 	char = np.asarray([on_fmax,
@@ -449,7 +511,8 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 					   off_sigma,
 					   off_error,
 					   off_fcut,
-					   off_delay])
+					   off_delay,
+						 peak_conflict])
 	
 	# Retorna respuesta de modulación en frecuencia, el análisis de peaks, fitting y features
 	processed = {}
@@ -773,6 +836,8 @@ def get_chirp_response(spks, events, parameters, cell_key,
 	flash_bounds = (0, on_dur, on_dur, on_dur + off_dur)
 	# Repetitions added due to spiketools conditions
 	cell_type, flash_char = spkt.get_features_flash(flash_resp / repetitions, flash_time, flash_bounds, resp_thr=0.2, bias_thr=0.65)
+	flash_char[-2] = flash_char[-2] * repetitions
+	flash_char[-1] = flash_char[-1] * repetitions
 
 	# Frequency analysis
 	min_lines = chirp_signal['freq_mod_min_lines']
@@ -791,6 +856,7 @@ def get_chirp_response(spks, events, parameters, cell_key,
 	#char['flash_char'] = flash_char
 	char['SNR'] = SNR
 	char['QI'] = QI
+	char['flash_char'] = flash_char
 	char['amp_char'] = amp_data['char']
 	char['freq_char'] = freq_data['char']
 
@@ -840,33 +906,46 @@ def get_pop_response(spks, events, parameters,
 	exp_columns = ['flash_type',
 								 'SNR',
 						  	 'QI']
+	flash_columns = ['on_latency',
+									 'off_latency',
+									 'bias_idx',
+									 'on_decay',
+									 'off_decay',
+									 'on_resp_index',
+									 'off_resp_index',
+									 'on_sust_index',
+									 'off_sust_index',
+									 'on_freq_max',
+									 'off_freq_max']
 	freq_columns = ['on_freq_fmax',
-					'on_freq_f0',
-					'on_freq_sigma',
-					'on_freq_error',
-					'on_freq_fcut',
-					'on_freq_delay',
-					'off_freq_fmax',
-					'off_freq_f0',
-					'off_freq_sigma',
-					'off_freq_error',
-					'off_freq_fcut',
-					'off_freq_delay']
+									'on_freq_f0',
+									'on_freq_sigma',
+									'on_freq_error',
+									'on_freq_fcut',
+									'on_freq_delay',
+									'off_freq_fmax',
+									'off_freq_f0',
+									'off_freq_sigma',
+									'off_freq_error',
+									'off_freq_fcut',
+									'off_freq_delay',
+									'peak_conflict']
 	amp_columns = ['on_amp_fmax',
-				   'on_amp_slope',
-				   'on_amp_shift',
-				   'on_amp_error',
-				   'on_amp_fcut',
-				   'on_amp_delay',
-				   'off_amp_fmax',
-				   'off_amp_slope',
-				   'off_amp_shift',
-				   'off_amp_error',
-				   'off_amp_fcut',
-				   'off_amp_delay']
+								 'on_amp_slope',
+								 'on_amp_shift',
+								 'on_amp_error',
+								 'on_amp_fcut',
+								 'on_amp_delay',
+								 'off_amp_fmax',
+								 'off_amp_slope',
+								 'off_amp_shift',
+								 'off_amp_error',
+								 'off_amp_fcut',
+								 'off_amp_delay']
 
 	columns = []
 	columns.extend(exp_columns)
+	columns.extend(flash_columns)
 	columns.extend(freq_columns)
 	columns.extend(amp_columns)
 
@@ -877,12 +956,17 @@ def get_pop_response(spks, events, parameters,
 	for idx, unit in enumerate(tqdm(spks.keys())):
 		output, char = get_chirp_response(spks, events, parameters, unit, psth_bin, fit_resolution)
 		
-		index.append(unit)
-		cells_feat[idx, :] = np.concatenate(([char['flash_type'], char['SNR'], char['QI']], char['freq_char'], char['amp_char']))
+		# Mapping temp_0 -> Unit_0001
+		def temp_to_unit(key):
+			unit = int(key.split('_')[-1]) + 1
+			return 'Unit_{:04d}'.format(unit)
+		index.append(temp_to_unit(unit))
+
+		cells_feat[idx, :] = np.concatenate(([char['flash_type'], char['SNR'], char['QI']], char['flash_char'], char['freq_char'], char['amp_char']))
 
 		if panalysis is not None:
 			with h5py.File(panalysis, 'a') as hdf5_resp:
-				cell_group = hdf5_resp.require_group(unit)
+				cell_group = hdf5_resp.require_group(temp_to_unit(unit))
 				chirp_group = cell_group.require_group('chirp_signal')
 				for key, data in chirp_signal.items():
 					if key in chirp_group:
@@ -896,6 +980,8 @@ def get_pop_response(spks, events, parameters,
 					resp_group.create_dataset(key, data.shape, data=data)
 
 	df = pd.DataFrame(cells_feat, columns=columns, index=index)
+	df['flash_type'] = df['flash_type'].replace(to_replace=[0, 1, 2, 3], value=['Null', 'ON', 'OFF', 'ON/OFF'])
+
 	if feat_file is not None:
 		with open(feat_file, 'w') as feat_csv:
 			df.to_csv(feat_csv)
