@@ -30,6 +30,13 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 	flash_type = df_feat.loc[key]['flash_type']
 	data = resp['{}/cell_resp/'.format(key)]
 
+	flash_time = data['flash_time'][:]
+	flash_response = data['flash_resp'][:]
+	flash_on_peak = df_feat.loc[key]['on_latency']
+	flash_off_peak = df_feat.loc[key]['off_latency'] + 3 # off time start. Should be param
+	flash_on_max = df_feat.loc[key]['on_flash_fmax']
+	flash_off_max = df_feat.loc[key]['off_flash_fmax']
+
 	freq_time = data['freq_time'][:]
 	freq_response = data['freq_response'][:]
 
@@ -41,32 +48,41 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 		# Max aplitude is 0.5. 0.125 added because of time_adap stim at the end
 		return np.multiply(np.ones_like(arr) * 0.625 / 10, arr, out=np.full_like(arr, np.nan, dtype=np.double), where=arr!=np.nan)
 
-	fig, ax = plt.subplots(2, figsize=(10, 10), constrained_layout=True)
-	fig.suptitle('{} response'.format(key), fontsize=16)
-	
-	ax[0].plot(freq_time, freq_response, color='tab:gray')
-	ax[1].plot(time_to_amp(amp_time), amp_response, color='tab:gray')
-	
-	ax[0].set_title('Frequency modulation')
-	ax[1].set_title('Amplitude modulation')
+	fig_fl, ax_fl = plt.subplots(figsize=(8, 4), constrained_layout=True) # Flash plot
+	fig_fm, ax_fm = plt.subplots(figsize=(8, 4), constrained_layout=True) # Freq plot
+	fig_am, ax_am = plt.subplots(figsize=(8, 4), constrained_layout=True) # Amp plot
 
-	ax[0].set_xlabel('Stimulus freq [Hz]')
-	ax[0].set_ylabel('Cell spike rate [Hz]')
+	ax_fl.plot(flash_time, flash_response, color='tab:gray')
+	ax_fl.set_title('{} response - Flash response'.format(key))
+	ax_fl.set_xlabel('Time [s]')
+	ax_fl.set_ylabel('Cell spike rate [Hz]')
+	
+	ax_fm.plot(freq_time, freq_response, color='tab:gray')
+	ax_fm.set_title('{} response - Frequency modulation'.format(key))
+	ax_fm.set_xlabel('Stimulus freq [Hz]')
+	ax_fm.set_ylabel('Cell spike rate [Hz]')
 
-	ax[1].set_xlabel('Stimulus amp modulation [-]')
-	ax[1].set_ylabel('Cell spike rate [Hz]')
+	ax_am.plot(time_to_amp(amp_time), amp_response, color='tab:gray')
+	ax_am.set_title('{} response - Amplitude modulation'.format(key))
+	ax_am.set_xlabel('Stimulus amp modulation [-]')
+	ax_am.set_ylabel('Cell spike rate [Hz]')
 
 	if flash_type == 'ON' or flash_type == 'ON/OFF':
+		# Flash peak
+		ax_fl.plot(flash_on_peak, flash_on_max, 'o', color='tab:blue')
+		ax_fl.axvline(flash_on_peak, linestyle='--', alpha=0.5)
+
 		# Freq peaks and fitting
 		t_on_fit = data['freq_on_fitting'][:][0]
 		v_on_fit = data['freq_on_fitting'][:][1]
 		t_on_peaks = data['freq_on_peaks'][:][0]
 		v_on_peaks = data['freq_on_peaks'][:][1]
 
-		on_id_max = np.argmax(np.isnan(t_on_peaks)) 
+		# In order to plot on peaks in case the first is missing
+		on_id_max = np.argmax(np.isnan(t_on_peaks[1:])) + 1
 
-		ax[0].plot(t_on_fit, v_on_fit, color='tab:cyan')
-		ax[0].plot(t_on_peaks[:on_id_max], v_on_peaks[:on_id_max], 'o', color='tab:blue', label='ON')
+		ax_fm.plot(t_on_fit, v_on_fit, color='tab:cyan')
+		ax_fm.plot(t_on_peaks[:on_id_max], v_on_peaks[:on_id_max], 'o', color='tab:blue', label='ON')
 		
 		# Amp peaks and fitting
 		t_on_fit = time_to_amp(data['amp_on_fitting'][:][0])
@@ -74,13 +90,17 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 		t_on_peaks = time_to_amp(data['amp_on_peaks'][:][0])
 		v_on_peaks = data['amp_on_peaks'][:][1]
 
-		ax[1].plot(t_on_fit, v_on_fit, color='tab:cyan')
-		ax[1].plot(t_on_peaks, v_on_peaks, 'o', color='tab:blue', label='ON')
+		ax_am.plot(t_on_fit, v_on_fit, color='tab:cyan')
+		ax_am.plot(t_on_peaks, v_on_peaks, 'o', color='tab:blue', label='ON')
 		
-		ax[0].legend()
-		ax[1].legend()
+		ax_fm.legend()
+		ax_am.legend()
 
 	if flash_type == 'OFF' or flash_type == 'ON/OFF':
+		# Flash peak
+		ax_fl.plot(flash_off_peak, flash_off_max, 'o', color='tab:green')
+		ax_fl.axvline(flash_off_peak, linestyle='--', alpha=0.5)
+
 		# Freq peaks and fitting
 		t_off_fit = data['freq_off_fitting'][:][0]
 		v_off_fit = data['freq_off_fitting'][:][1]
@@ -89,8 +109,8 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 
 		off_id_max = np.argmax(np.isnan(t_off_peaks))
 
-		ax[0].plot(t_off_fit, v_off_fit, color='tab:olive')
-		ax[0].plot(t_off_peaks[:off_id_max], v_off_peaks[:off_id_max], 'o', color='tab:green', label='OFF')
+		ax_fm.plot(t_off_fit, v_off_fit, color='tab:olive')
+		ax_fm.plot(t_off_peaks[:off_id_max], v_off_peaks[:off_id_max], 'o', color='tab:green', label='OFF')
 		
 		# Amp peaks and fitting
 		t_off_fit = time_to_amp(data['amp_off_fitting'][:][0])
@@ -98,17 +118,27 @@ def plot_resp(key, panalysis, csv_feat, save_dir):
 		t_off_peaks = time_to_amp(data['amp_off_peaks'][:][0])
 		v_off_peaks = data['amp_off_peaks'][:][1]
 
-		ax[1].plot(t_off_fit, v_off_fit, color='tab:olive')
-		ax[1].plot(t_off_peaks, v_off_peaks, 'o', color='tab:green', label='OFF')
+		ax_am.plot(t_off_fit, v_off_fit, color='tab:olive')
+		ax_am.plot(t_off_peaks, v_off_peaks, 'o', color='tab:green', label='OFF')
 		
-		ax[0].legend()
-		ax[1].legend()
+		ax_fm.legend()
+		ax_am.legend()
 
-	plt.savefig(os.path.join(save_dir, '{}.png'.format(key)))
+	fig_fl.savefig(os.path.join(save_dir[0], '{}.png'.format(key)))
+	fig_fm.savefig(os.path.join(save_dir[1], '{}.png'.format(key)))
+	fig_am.savefig(os.path.join(save_dir[2], '{}.png'.format(key)))
 
-	[_ax.clear() for _ax in ax]
-	fig.clf()
-	fig.clear()
+	# Clear fig and axes
+	ax_fl.clear()
+	ax_fm.clear()
+	ax_am.clear()
+	fig_fl.clf()
+	fig_fl.clear()
+	fig_fm.clf()
+	fig_fm.clear()
+	fig_am.clf()
+	fig_am.clear()
+
 	plt.close('all')
 
 def plot_features(key, panalysis, csv_feat, save_dir):
@@ -367,9 +397,18 @@ if __name__ == "__main__":
 			if os.path.isdir(fig_dir) == False:
 				os.mkdir(fig_dir)
 
-			resp_dir = os.path.join(fig_dir, 'resp')
-			if os.path.isdir(resp_dir) == False:
-				os.mkdir(resp_dir)
+			flash_dir = os.path.join(fig_dir, 'flashes')
+			if os.path.isdir(flash_dir) == False:
+				os.mkdir(flash_dir)
+			freq_dir = os.path.join(fig_dir, 'freq_mod')
+			if os.path.isdir(freq_dir) == False:
+				os.mkdir(freq_dir)
+			amp_dir = os.path.join(fig_dir, 'amp_mod')
+			if os.path.isdir(amp_dir) == False:
+				os.mkdir(amp_dir)
+
+			# Now resp_dir is vector folder
+			resp_dir = [flash_dir, freq_dir, amp_dir]
 			
 			feat_dir = os.path.join(fig_dir, 'feat')
 			if os.path.isdir(feat_dir) == False:

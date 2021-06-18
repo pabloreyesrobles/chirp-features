@@ -319,10 +319,14 @@ def freq_gauss_fit(t_spike, v_spike, bins_fit):
 	# Índice máximo para hacer fitting, previo a filtrar NaN
 	#top_filt = np.argmin(np.logical_not(np.isnan(t_spike))) #-1 
 	#filt = np.logical_not(np.isnan(t_spike))[:top_filt]
-	on_id_max = np.argmax(np.isnan(t_spike))
+	on_id_max = np.argmax(np.isnan(t_spike[1:])) + 1
 
 	t_filter = t_spike[:on_id_max]
 	v_filter = v_spike[:on_id_max]
+
+	nan_filt = np.logical_not(np.isnan(t_filter))
+	t_filter = t_filter[nan_filt]
+	v_filter = v_filter[nan_filt]
 
 	fmax_end = np.nan
 	f0_end = np.nan
@@ -359,27 +363,18 @@ def freq_gauss_fit(t_spike, v_spike, bins_fit):
 		except RuntimeError:
 			pass
 
-	"""
-	popt, pcov = curve_fit(Gaussian, t_filter, v_filter / np.max(v_filter))
-
-	# Denormalizar fmax_end
-	fmax_end = popt[0] * np.max(v_filter)
-	f0_end = popt[1]
-	sigma_end = popt[2]
-
-	x_new = bins_fit[bins_fit < t_filter[-1]]
-	y_new = Gaussian(x_new, fmax_end, f0_end, sigma_end)
-
-	error = np.nanmean(np.abs(v_filter - Gaussian(t_filter, fmax_end, f0_end, sigma_end)) ** 2) ** 0.5
-	"""
 	return (fmax_end, f0_end, sigma_end, x_new, y_new, error)
 
 def freq_exp_fit(t_spike, v_spike, bins_fit):
 	# Índice máximo para hacer fitting, previo a filtrar NaN
-	filt = np.argmax(np.isnan(t_spike))
+	filt = np.argmax(np.isnan(t_spike[1:])) + 1
 
 	t_filter = t_spike[:filt]
 	v_filter = v_spike[:filt]
+
+	nan_filt = np.logical_not(np.isnan(t_filter))
+	t_filter = t_filter[nan_filt]
+	v_filter = v_filter[nan_filt]
 
 	delay_start = np.nan
 	scale = np.nan
@@ -466,7 +461,7 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 		on_diff = np.diff(on_tim_spike)
 		on_fresp = np.divide(np.ones_like(on_diff), on_diff, out=np.full_like(on_diff, np.nan, dtype=np.double), where=on_diff!=0)
 		
-		on_id_max = np.argmax(np.isnan(on_tim_spike)) - 1   
+		on_id_max = np.argmax(np.isnan(on_tim_spike[1:]))
 		on_fcut = on_tim_spike[on_id_max] # o agregar -1 acá
 
 		on_id_min = on_id_max - 5
@@ -484,7 +479,7 @@ def freq_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_typ
 		off_diff = np.diff(off_tim_spike)
 		off_fresp = np.divide(np.ones_like(off_diff), off_diff, out=np.full_like(off_diff, np.nan, dtype=np.double), where=off_diff!=0)
 
-		off_id_max = np.argmax(np.isnan(off_tim_spike)) - 1
+		off_id_max = np.argmax(np.isnan(off_tim_spike[1:]))
 		off_fcut = off_tim_spike[off_id_max] # o agregar -1 acá
 
 		off_id_min = off_id_max - 5
@@ -648,19 +643,6 @@ def amp_sigmoid_fit(t_spike, v_spike, bins_fit):
 		except RuntimeError:
 			pass
 
-	"""
-	popt, pcov = curve_fit(Gaussian, t_filter, v_filter / np.max(v_filter))
-
-	# Denormalizar fmax_end
-	fmax_end = popt[0] * np.max(v_filter)
-	f0_end = popt[1]
-	sigma_end = popt[2]
-
-	x_new = bins_fit[bins_fit < t_filter[-1]]
-	y_new = Gaussian(x_new, fmax_end, f0_end, sigma_end)
-
-	error = np.nanmean(np.abs(v_filter - Gaussian(t_filter, fmax_end, f0_end, sigma_end)) ** 2) ** 0.5
-	"""
 	return (fmax_end, slope_end, shift_end, x_new, y_new, error)
 
 def amp_analysis(spikes, bounds, parameters, psth_bin, fit_resolution, cell_type, min_lines, max_lines):
@@ -791,7 +773,7 @@ def get_chirp_response(spks, events, parameters, cell_key,
 	exp_resp = spkt.est_pdf(trials_chirp, exp_time, bandwidth=psth_bin, norm_factor=psth.max())
 
 	if np.max(exp_resp) != 0:
-		SNR = 20 * np.log10(np.max(exp_resp) / (2 * np.mean(exp_resp)))
+		SNR = 10 * np.log10(np.max(exp_resp) / (2 * np.mean(exp_resp)))
 	else:
 		SNR = np.nan
 	
@@ -915,8 +897,8 @@ def get_pop_response(spks, events, parameters,
 									 'off_resp_index',
 									 'on_sust_index',
 									 'off_sust_index',
-									 'on_freq_max',
-									 'off_freq_max']
+									 'on_flash_fmax',
+									 'off_flash_fmax']
 	freq_columns = ['on_freq_fmax',
 									'on_freq_f0',
 									'on_freq_sigma',
