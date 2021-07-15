@@ -1,10 +1,7 @@
 {
 	"Experiments":
 	[
-		"../Ensembles/MR-0227",
-		"../Ensembles/MR-0242",
-		"../Ensembles/MR-0342",
-		"../Ensembles/MR-0387"
+		"MR-0424/"
 	],
-	"Output": "../Ensembles/results"
+	"Output": "results/"
 }

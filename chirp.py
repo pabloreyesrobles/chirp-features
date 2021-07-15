@@ -127,6 +127,9 @@ def get_chirp_subevents(sync_path, start_end_path, repeated_path, output_file, n
 	protocol_name = 'chirp'  # name of protocol in event_list file
 
 	chirp_filter = sync['protocol_name'] == protocol_name
+
+	# extra_description filter
+
 	chirp_times = sync[chirp_filter]
 
 	if chirp_times.shape[0] == 0:
@@ -169,6 +172,7 @@ def get_chirp_subevents(sync_path, start_end_path, repeated_path, output_file, n
 				'inter_event_duration_seg': 0.0,
 				'protocol_name': protocol_name,
 				'extra_description': names,
+				'protocol_spec': kchirp.extra_description,
 				'rep_name': kchirp.repetition_name,
 				'repetead_frames': '',
 				'#repetead_frames': rep_trans,
@@ -817,7 +821,7 @@ def get_chirp_response(spks, events, parameters, cell_key,
 
 	flash_bounds = (0, on_dur, on_dur, on_dur + off_dur)
 	# Repetitions added due to spiketools conditions
-	cell_type, flash_char = spkt.get_features_flash(flash_resp / repetitions, flash_time, flash_bounds, resp_thr=0.2, bias_thr=0.65)
+	cell_type, flash_char = spkt.get_features_flash(flash_resp / repetitions, flash_time, flash_bounds, resp_thr=0.2, bias_thr=0.65, sust_time=1.0)
 	flash_char[-2] = flash_char[-2] * repetitions
 	flash_char[-1] = flash_char[-1] * repetitions
 

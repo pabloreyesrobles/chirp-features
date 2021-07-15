@@ -373,52 +373,69 @@ if __name__ == "__main__":
 			print('Error computing chirp sub events')
 			continue
 		
-		exp_output = os.path.join(params['Output'], exp_name)
-		if os.path.isdir(exp_output) == False:
-			os.mkdir(exp_output)
-		
-		resp_file = os.path.join(exp_output, 'response.hdf5')
-		feat_file = os.path.join(exp_output, 'features.csv')
+		spec_list = list(events[~events['protocol_spec'].duplicated()]['protocol_spec'])
+		spec_events = events
+				
+		for i, spec in enumerate(spec_list):
+			if len(spec_list) == 1:
+				exp_output = os.path.join(params['Output'], exp_name)
+				if os.path.isdir(exp_output) == False:
+					os.mkdir(exp_output)
 
-		if fig_only is False:
-			print('Response and features:')
-			try:
-				with h5py.File(sorting_file, 'r') as spks:
-					get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
-														panalysis=resp_file, feat_file=feat_file)
-			except Warning as e:
-				print(e)
-				print('Error getting response and features')
-				continue
+				events = spec_events
+			else:
+				if spec == np.nan:
+					spec = i
+				exp_output = os.path.join(params['Output'], exp_name, spec)
+				if os.path.isdir(exp_output) == False:
+					os.makedirs(exp_output)
 
-		if no_fig is False:
-			print('Figures:')
-			fig_dir = os.path.join(exp_output, 'fig')
-			if os.path.isdir(fig_dir) == False:
-				os.mkdir(fig_dir)
+				events = spec_events[spec_events['protocol_spec'] == spec]
 
-			flash_dir = os.path.join(fig_dir, 'flashes')
-			if os.path.isdir(flash_dir) == False:
-				os.mkdir(flash_dir)
-			freq_dir = os.path.join(fig_dir, 'freq_mod')
-			if os.path.isdir(freq_dir) == False:
-				os.mkdir(freq_dir)
-			amp_dir = os.path.join(fig_dir, 'amp_mod')
-			if os.path.isdir(amp_dir) == False:
-				os.mkdir(amp_dir)
+				print('Working on spec {} ...'.format(spec))
 
-			# Now resp_dir is vector folder
-			resp_dir = [flash_dir, freq_dir, amp_dir]
-			
-			feat_dir = os.path.join(fig_dir, 'feat')
-			if os.path.isdir(feat_dir) == False:
-				os.mkdir(feat_dir)
+			resp_file = os.path.join(exp_output, 'response.hdf5')
+			feat_file = os.path.join(exp_output, 'features.csv')
 
-			with h5py.File(resp_file, 'r') as resp:
-				for key in tqdm(resp.keys()):
-					plot_resp(key, resp, feat_file, resp_dir)
-					plot_features(key, resp, feat_file, feat_dir)
-					plt.close('all')
+			if fig_only is False:
+				print('Response and features:')
+				try:
+					with h5py.File(sorting_file, 'r') as spks:
+						get_pop_response(spks['/spiketimes/'], events, chirp_args, psth_bin, fit_resolution,
+															panalysis=resp_file, feat_file=feat_file)
+				except Warning as e:
+					print(e)
+					print('Error getting response and features')
+					continue
+
+			if no_fig is False:
+				print('Figures:')
+				fig_dir = os.path.join(exp_output, 'fig')
+				if os.path.isdir(fig_dir) == False:
+					os.mkdir(fig_dir)
+
+				flash_dir = os.path.join(fig_dir, 'flashes')
+				if os.path.isdir(flash_dir) == False:
+					os.mkdir(flash_dir)
+				freq_dir = os.path.join(fig_dir, 'freq_mod')
+				if os.path.isdir(freq_dir) == False:
+					os.mkdir(freq_dir)
+				amp_dir = os.path.join(fig_dir, 'amp_mod')
+				if os.path.isdir(amp_dir) == False:
+					os.mkdir(amp_dir)
+
+				# Now resp_dir is vector folder
+				resp_dir = [flash_dir, freq_dir, amp_dir]
+				
+				feat_dir = os.path.join(fig_dir, 'feat')
+				if os.path.isdir(feat_dir) == False:
+					os.mkdir(feat_dir)
+
+				with h5py.File(resp_file, 'r') as resp:
+					for key in tqdm(resp.keys()):
+						plot_resp(key, resp, feat_file, resp_dir)
+						plot_features(key, resp, feat_file, feat_dir)
+						plt.close('all')
 
 		print('Done!\n')
 		
