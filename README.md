@@ -37,4 +37,4 @@ $ python extract_features.py
 
    [scipy]: <https://www.scipy.org/>
    [anaconda]: <https://www.anaconda.com/>
-   [spikelib]: <https://github.com/creyesp/spikelib/>
+   [fork]: <https://github.com/pabloreyesrobles/spikelib/>
