@@ -28,6 +28,28 @@ class PeakDecoding:
 		# Frequency response of data
 		self.fresp = np.array([])
 
+def chirp_def_args():
+  # Chirp ECOVIS default parameters
+  chirp_args = {}
+  chirp_args['chirp_duration'] = 35
+  chirp_args['base_amp'] = 0.5
+
+  chirp_args['t_adap'] = 2
+
+  chirp_args['amp_on'] = 1
+  chirp_args['t_on'] = 3
+  chirp_args['t_off'] = 3
+
+  chirp_args['freq_mod_final_freq'] = 15
+  chirp_args['freq_mod_time'] = 15
+  chirp_args['freq_mod_amp'] = 0.5
+  chirp_args['freq_mod_init_phase'] = 2 * np.pi
+
+  chirp_args['amp_mod_freq'] = 1
+  chirp_args['amp_mod_time'] = 8
+  chirp_args['amp_mod_max'] = 0.5
+
+  return chirp_args
 
 def matlab_hanning(n):
 	return hann(n + 2)[1:-1]
@@ -939,7 +961,7 @@ def get_pop_response(spks, events, parameters,
 	cells_feat = np.empty((len(spks), len(columns)))
 	cells_feat[:] = np.nan
 
-	for idx, unit in enumerate(tqdm(spks.keys())):
+	for idx, unit in enumerate(tqdm(spks.keys(), desc='Cells processing', ncols=100)):
 		output, char = get_chirp_response(spks, events, parameters, unit, psth_bin, fit_resolution)
 		
 		# Mapping temp_0 -> Unit_0001
