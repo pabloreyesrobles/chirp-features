@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import warnings
 import h5py
+import os
 # import sys
 import istarmap
 from multiprocessing import Pool
@@ -965,7 +966,8 @@ def get_pop_response(spks, events, parameters,
   cells_feat[:] = np.nan
   
   get_resp_args = [(spks, events, parameters, unit, psth_bin, fit_resolution) for unit in spks.keys()]
-  with Pool(3) as pool:
+  num_threads = os.cpu_count()
+  with Pool(num_threads) as pool:
     cells_proc = list(tqdm(pool.istarmap(get_chirp_response, get_resp_args), desc='Cells processing', ncols=100, total=len(get_resp_args)))
 
   for idx, unit in enumerate(tqdm(spks.keys(), desc='Saving info', ncols=100)):
